@@ -21,8 +21,12 @@ Sign into the same Expo account in Expo Go and scan the QR code with your phone.
 
 ## Demo device
 
-The two-screen flow and persistence have been verified in a browser. The phone model will be recorded after the Expo Go demo.
+Tested on an iPhone using Expo Go. The demo shows an event being added with the iOS date picker and remaining in the list after Expo Go is closed and reopened.
 
 ## What I learned
 
 A countdown uses calendar days on the device. Counting elapsed hours and dividing by 24 can give the wrong result around daylight saving time, when a local calendar day can be shorter or longer than 24 hours.
+
+## Review follow-up
+
+Saving now processes one storage update at a time. If saved data contains an invalid entry, the app displays any entries it can read and keeps a copy of the original data before the next save replaces it. A temporary storage read failure can be retried from the home screen.

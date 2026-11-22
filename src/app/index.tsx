@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,23 +9,28 @@ import { daysUntil, formatDate, loadCountdowns, localDateKey, type Countdown } f
 export default function HomeScreen() {
   const [entries, setEntries] = useState<Countdown[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [retry, setRetry] = useState(0);
+  const [recovered, setRecovered] = useState(false);
   const [today, setToday] = useState(localDateKey);
+  const requestId = useRef(0);
+
+  const refresh = useCallback(async () => {
+    const id = ++requestId.current;
+    setStatus('loading');
+    try {
+      const result = await loadCountdowns();
+      if (id !== requestId.current) return;
+      setEntries(result.entries);
+      setRecovered(result.recovered);
+      setStatus('ready');
+    } catch {
+      if (id === requestId.current) setStatus('error');
+    }
+  }, []);
 
   useFocusEffect(useCallback(() => {
-    let active = true;
-    void loadCountdowns().then(
-      (result) => {
-        if (!active) return;
-        setEntries(result);
-        setStatus('ready');
-      },
-      () => {
-        if (active) setStatus('error');
-      },
-    );
-    return () => { active = false; };
-  }, [retry]));
+    void refresh();
+    return () => { requestId.current += 1; };
+  }, [refresh]));
 
   useEffect(() => {
     const refreshDate = () => setToday(localDateKey());
@@ -53,15 +58,17 @@ export default function HomeScreen() {
             <Text accessibilityRole="alert" style={styles.emptyTitle}>Couldn’t load your countdowns.</Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => {
-                setStatus('loading');
-                setRetry((attempt) => attempt + 1);
-              }}
+              onPress={() => void refresh()}
               style={styles.retry}
             >
               <Text style={styles.retryText}>Try again</Text>
             </Pressable>
           </View>
+        )}
+        {status === 'ready' && recovered && (
+          <Text accessibilityRole="alert" style={styles.recovery}>
+            Some saved data couldn’t be read. You can still add countdowns.
+          </Text>
         )}
         {status === 'ready' && (
           <FlatList
@@ -118,6 +125,7 @@ const styles = StyleSheet.create({
   heading: { marginBottom: 28, gap: 8 },
   title: { color: colors.ink, fontSize: 38, fontWeight: '800', letterSpacing: -1.5 },
   description: { color: colors.muted, fontSize: 16, lineHeight: 23 },
+  recovery: { color: colors.muted, fontSize: 14, marginBottom: 12 },
   list: { flex: 1 },
   empty: { borderColor: colors.line, borderWidth: 1, borderRadius: 20, padding: 22, gap: 7, backgroundColor: colors.surface },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
